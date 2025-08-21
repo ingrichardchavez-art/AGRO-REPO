@@ -1,0 +1,158 @@
+Basado en sistemas profesionales de logística como SAP Logistics, Oracle SCM y Trimble Transportation, te describo la interfaz específica:
+
+🖥️ Layout Principal
+Header Superior:
+
+Logo + "AgroFlow Logistics" a la izquierda
+
+Buscador central con filtros rápidos (por pedido, cliente, vehículo)
+
+Campana de notificaciones + avatar de usuario a la derecha
+
+Panel Lateral Izquierdo (siempre visible):
+
+Navegación por iconos: Dashboard, Flota, Rutas, Pedidos, Clientes, Reportes
+
+Estado del sistema online/offline
+
+Acceso rápido a ayuda y soporte
+
+📊 Dashboard Principal
+Sección Superior (Métricas Clave):
+
+4 tarjetas con: Vehículos activos, Entregas hoy, Pedidos pendientes, % Cumplimiento
+
+Cada tarjeta con icono, número destacado, tendencia (↑↓) y link a detalle
+
+Mapa Central Interactivo:
+
+Mapa Leaflet/OpenStreetMap con ubicación de flota en tiempo real
+
+Capas intercambiables: tráfico, clima, puntos de interés
+
+Marcadores codificados por color según estado del vehículo
+
+Sección Inferior (Widgets):
+
+Lista de alertas prioritarias (3-5 items)
+
+Próximas entregas críticas (ventana de tiempo < 2h)
+
+Rendimiento de flota (gráfico circular simple)
+
+📱 Diseño Mobile-First
+Prioridad móvil:
+
+Menú hamburguesa con navegación priorizada
+
+Acciones principales con botones fijos en parte inferior
+
+Gestos táctiles: swipe para refrescar, tap para acciones
+
+Formularios en pantallas individuales con steppers
+
+Interacciones táctiles:
+
+Botones mínimos de 44x44px
+
+Campos de formulario con labels siempre visibles
+
+Feedback háptico en acciones críticas
+
+Scroll infinito en listas largas
+
+🎨 Esquema Visual
+Paleta de Colores:
+
+Primario: Verde #2E7D32 (agro)
+
+Secundario: Azul #1565C0 (logística)
+
+Neutral: Gris #F5F5F5 (fondo)
+
+Estados: Rojo #D32F2F (alertas), Ámbar #FFA000 (advertencias), Verde #388E3C (éxito)
+
+Tipografía:
+
+Inter (open source) para textos
+
+Pesos: Regular 400, Medium 500, SemiBold 600
+
+Escala: 14px base, 16px para móviles
+
+📋 Componentes Específicos
+Tarjeta de Vehículo:
+
+Imagen miniatura del tipo de vehículo
+
+Placa, estado, conductor asignado
+
+Barra de progreso de capacidad (kg/volumen)
+
+Botones: ubicación, detalles, contacto
+
+Tarjeta de Ruta:
+
+Mapa mini de la ruta con puntos clave
+
+Métricas: distancia, tiempo estimado, paradas
+
+Indicador de optimización (% de eficiencia)
+
+Estado de ejecución (color codificado)
+
+Formulario de Pedido:
+
+Stepper de 3 pasos: Información → Productos → Programación
+
+Selectores de cliente con búsqueda predictiva
+
+Selector de productos con cantidades y temperaturas
+
+Selector de ventana de tiempo con calendario visual
+
+🔄 Flujos de Trabajo
+Asignación de Ruta:
+
+Seleccionar pedidos pendientes
+
+Vista previa de agrupamiento automático
+
+Ajustar parámetros de optimización
+
+Revisar ruta propuesta en mapa
+
+Asignar vehículo y conductor
+
+Confirmar y enviar notificaciones
+
+Seguimiento de Entrega:
+
+Vista de lista con estados colorizados
+
+Filtros por hora, estado, ubicación
+
+Modal de detalles al hacer tap
+
+Acciones: contacto, actualizar estado, reportar problema
+
+🎯 Elementos Diferenciadores
+Header Contextual:
+
+Muestra el módulo actual y las acciones principales
+
+Cambia dinámicamente según el contexto
+
+Panel Deslizante:
+
+Para detalles secundarios que aparecen desde la derecha
+
+Se cierra automáticamente al seleccionar elemento
+
+Modo Conductor:
+
+Interfaz simplificada para uso en ruta
+
+Botones grandes y contraste alto
+
+Información crítica siempre visible

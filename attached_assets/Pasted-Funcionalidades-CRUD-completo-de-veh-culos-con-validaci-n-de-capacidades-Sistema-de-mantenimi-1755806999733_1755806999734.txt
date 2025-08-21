@@ -1,0 +1,143 @@
+Funcionalidades:
+
+CRUD completo de vehículos con validación de capacidades
+
+Sistema de mantenimiento predictivo basado en kilometraje
+
+Geolocalización en tiempo real usando browser geolocation API
+
+Asignación automática de vehículos basada en tipo de carga
+
+2. Módulo de Optimización de Rutas
+Algoritmos implementados:
+
+Clark-Wright Savings Algorithm para optimización de múltiples vehículos
+
+Nearest Neighbor para rutas rápidas de pocas paradas
+
+Time Window Constraint Handling para entregas programadas
+
+Implementación específica:
+
+typescript
+// Implementación del algoritmo de ahorros
+const calculateRouteSavings = (stops: DeliveryStop[]): RouteSolution => {
+  // 1. Matriz de distancias usando Haversine formula
+  // 2. Cálculo de ahorros para cada par de paradas
+  // 3. Ordenamiento descendente de ahorros
+  // 4. Construcción de rutas respetando capacidades
+  // 5. Validación de ventanas de tiempo
+  return optimizedRoute;
+};
+3. Módulo de Seguimiento en Tiempo Real
+Tecnologías específicas:
+
+WebSocket connections via Supabase Realtime
+
+React Leaflet con capas personalizadas
+
+GeoJSON para representación de rutas
+
+Service Worker para background sync
+
+Características:
+
+Actualizaciones de posición cada 30 segundos
+
+Alertas de desvío de ruta (geofencing)
+
+Estimación de llegada con traffic-aware updates
+
+Modo offline con sincronización posterior
+
+🎯 Prácticas de Desarrollo Implementadas
+Code Quality:
+ESLint config con @next/eslint-plugin-next
+
+Prettier con configuración específica para Tailwind
+
+Husky pre-commit hooks para testing
+
+GitHub Actions para CI/CD pipeline
+
+Testing Strategy:
+Jest + React Testing Library para unit tests
+
+Cypress Component Testing para componentes críticos
+
+Mock Service Worker para API testing
+
+Coverage thresholds: 80%+ para componentes core
+
+Performance Optimizations:
+Dynamic imports con React.lazy() para mapas y gráficos
+
+Image optimization con Next.js Image component
+
+Database indexing optimizado en Supabase
+
+Pagination para listas largas con react-virtual
+
+Security Practices:
+Row Level Security (RLS) en todas las tablas Supabase
+
+Validation con Zod tanto en frontend como backend
+
+SQL injection protection via Supabase parameterized queries
+
+XSS protection con DOMPurify para contenido dinámico
+
+📱 Especificaciones Mobile-First
+Breakpoints específicos:
+css
+/* Tailwind custom config */
+module.exports = {
+  theme: {
+    screens: {
+      'xs': '320px',
+      'sm': '480px',  // Mobile landscape
+      'md': '768px',  // Tablet
+      'lg': '1024px', // Small desktop
+      'xl': '1280px', // Desktop
+    }
+  }
+}
+Patrones de interacción táctil:
+Touch-friendly buttons (min 44px)
+
+Swipe gestures para acciones rápidas
+
+Pull-to-refresh para actualización de datos
+
+Virtualized lists para mejor rendimiento móvil
+
+🗃️ Estructura de Base de Datos
+Tablas principales:
+sql
+-- Tabla de vehículos
+CREATE TABLE vehicles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_plate TEXT UNIQUE NOT NULL,
+  type VARCHAR(20) CHECK (type IN ('refrigerated', 'dry', 'tanker')),
+  capacity_kg INTEGER NOT NULL CHECK (capacity_kg > 0),
+  current_status VARCHAR(20) DEFAULT 'available',
+  location GEOGRAPHY(POINT) NOT NULL,
+  last_maintenance DATE NOT NULL
+);
+
+-- Tabla de rutas optimizadas
+CREATE TABLE optimized_routes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  vehicle_id UUID REFERENCES vehicles(id),
+  stops JSONB NOT NULL, -- Array de paradas con órden optimizado
+  total_distance_km DECIMAL(10,2) NOT NULL,
+  estimated_duration_min INTEGER NOT NULL,
+  calculated_at TIMESTAMPTZ DEFAULT NOW()
+);
+🚀 Métricas de Rendimiento Objetivo
+Métrica	Target	Herramienta de Medición
+LCP	< 2.5s	Vercel Speed Insights
+FID	< 100ms	Chrome DevTools
+CLS	< 0.1	Web Vitals
+Bundle Size	< 150KB	Webpack Bundle Analyzer
+TTI	< 3.5s	Lighthouse
