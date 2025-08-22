@@ -1,0 +1,7 @@
+{
+    "terminal.integrated.tabs.hideCondition": "never",
+    "zenMode.hideActivityBar": false,
+    "zenMode.hideStatusBar": false,
+    "editor.suggest.showStatusBar": true,
+    "debug.enableStatusBarColor": true
+}

@@ -1,29 +1,28 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Plus, Search, Filter, Calendar, MapPin, Package, User, Truck, Clock, AlertCircle } from "lucide-react";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import MobileNav from "@/components/layout/mobile-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Plus, Search, Filter, Calendar as CalendarIcon, Clock, MapPin, User, Thermometer, Weight } from "lucide-react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { apiRequest } from "@/lib/queryClient";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import type { Order, InsertOrder, Client } from "@shared/schema";
-import { insertOrderSchema } from "@shared/schema";
-import { es } from "date-fns/locale";
+import { LogisticsAPI } from "@/lib/api";
+import { createOrderSchema, type CreateOrder } from "@/lib/schemas";
 
 export default function Orders() {
   const isMobile = useIsMobile();
@@ -35,45 +34,75 @@ export default function Orders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Obtener pedidos
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["/api/orders"],
+    queryKey: ["orders"],
+    queryFn: () => LogisticsAPI.getOrders(),
   });
 
+  // Obtener clientes
   const { data: clients = [] } = useQuery({
-    queryKey: ["/api/clients"],
+    queryKey: ["clients"],
+    queryFn: () => LogisticsAPI.getClients(),
   });
 
+  // Obtener vehículos
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => LogisticsAPI.getVehicles(),
+  });
+
+  // Obtener conductores
+  const { data: drivers = [] } = useQuery({
+    queryKey: ["drivers"],
+    queryFn: () => LogisticsAPI.getDrivers(),
+  });
+
+  // Mutación para crear pedido
   const createOrderMutation = useMutation({
-    mutationFn: async (data: InsertOrder) => apiRequest("/api/orders", "POST", data),
+    mutationFn: async (data: CreateOrder) => {
+      const orderData = {
+        ...data,
+        status: "pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      return LogisticsAPI.createOrder(orderData);
+    },
     onSuccess: () => {
       toast({
         title: "Pedido creado",
-        description: "El pedido ha sido creado exitosamente",
+        description: "El pedido se ha creado exitosamente",
       });
       setIsCreateDialogOpen(false);
       setCreateStep(1);
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "No se pudo crear el pedido",
+        description: "No se pudo crear el pedido. Intente nuevamente.",
         variant: "destructive",
       });
+      console.error("Error creating order:", error);
     },
   });
 
-  const form = useForm<InsertOrder>({
-    resolver: zodResolver(insertOrderSchema),
+  const form = useForm<CreateOrder>({
+    resolver: zodResolver(createOrderSchema),
     defaultValues: {
-      clientId: "",
-      clientName: "",
+      client_id: "",
+      client_name: "",
+      pickup_address: "",
+      delivery_address: "",
+      priority: "medium",
+      pickup_date: new Date(),
+      delivery_date: new Date(),
+      weight: 0,
+      volume: 0,
+      special_instructions: "",
       products: [{ name: "", quantity: 1, unit: "kg" }],
-      priority: "normal",
-      status: "pending",
-      pickupAddress: "",
-      deliveryAddress: "",
-      specialInstructions: "",
     },
   });
 
@@ -82,82 +111,66 @@ export default function Orders() {
     name: "products",
   });
 
-  const onSubmit = (data: InsertOrder) => {
-    // Calculate total weight
-    const totalWeight = data.products.reduce((sum, product) => 
-      sum + (typeof product.quantity === 'number' ? product.quantity : parseFloat(product.quantity.toString())), 0
-    );
+  const onSubmit = (data: CreateOrder) => {
+    // Calcular peso y volumen total
+    const totalWeight = data.products.reduce((sum, product) => sum + product.quantity, 0);
+    const totalVolume = data.products.reduce((sum, product) => sum + (product.quantity * 0.1), 0); // Estimación simple
 
     createOrderMutation.mutate({
       ...data,
-      totalWeight: totalWeight.toString(),
+      weight: totalWeight,
+      volume: totalVolume,
     });
   };
 
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch = order.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         order.pickup_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         order.delivery_address?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "delivered":
-        return "bg-success-green text-white";
-      case "in_transit":
-        return "bg-logistics-blue text-white";
-      case "pending":
-        return "bg-warning-amber text-white";
-      case "assigned":
-        return "bg-gray-500 text-white";
-      case "cancelled":
-        return "bg-alert-red text-white";
-      default:
-        return "bg-gray-400 text-white";
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return "Entregado";
-      case "in_transit":
-        return "En tránsito";
-      case "pending":
-        return "Pendiente";
-      case "assigned":
-        return "Asignado";
-      case "cancelled":
-        return "Cancelado";
-      default:
-        return "Desconocido";
+      case "pending": return "bg-yellow-100 text-yellow-800";
+      case "assigned": return "bg-blue-100 text-blue-800";
+      case "in_transit": return "bg-purple-100 text-purple-800";
+      case "delivered": return "bg-green-100 text-green-800";
+      case "cancelled": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "critical":
-        return "text-alert-red";
-      case "high":
-        return "text-warning-amber";
-      default:
-        return "text-gray-500";
+      case "urgent": return "bg-red-100 text-red-800";
+      case "high": return "bg-orange-100 text-orange-800";
+      case "medium": return "bg-yellow-100 text-yellow-800";
+      case "low": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filteredOrders = Array.isArray(orders) ? orders.filter((order: Order) => {
-    const matchesSearch = order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.deliveryAddress.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  }) : [];
-
-  const handleStepNext = () => {
-    if (createStep < 3) setCreateStep(createStep + 1);
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "pending": return "Pendiente";
+      case "assigned": return "Asignado";
+      case "in_transit": return "En Tránsito";
+      case "delivered": return "Entregado";
+      case "cancelled": return "Cancelado";
+      default: return status;
+    }
   };
 
-  const handleStepBack = () => {
-    if (createStep > 1) setCreateStep(createStep - 1);
-  };
-
-  const resetForm = () => {
-    form.reset();
-    setCreateStep(1);
-    setIsCreateDialogOpen(false);
+  const getPriorityText = (priority: string) => {
+    switch (priority) {
+      case "urgent": return "Urgente";
+      case "high": return "Alta";
+      case "medium": return "Media";
+      case "low": return "Baja";
+      default: return priority;
+    }
   };
 
   return (
@@ -183,474 +196,422 @@ export default function Orders() {
         />
         
         <main className="p-4 lg:p-6 space-y-6 pb-20 lg:pb-6">
-          {/* Page Header */}
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gestión de Pedidos</h1>
-              <p className="text-gray-600">Formulario en 3 pasos: Información → Productos → Programación</p>
+              <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+              <p className="text-muted-foreground">
+                Gestiona todos los pedidos y entregas del sistema
+              </p>
             </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button 
-                  className="bg-agro-primary hover:bg-agro-primary/90"
-                  data-testid="button-add-order"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
                   Nuevo Pedido
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>Nuevo Pedido</span>
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${createStep >= 1 ? 'bg-agro-primary' : 'bg-gray-300'}`} />
-                      <div className={`w-2 h-2 rounded-full ${createStep >= 2 ? 'bg-agro-primary' : 'bg-gray-300'}`} />
-                      <div className={`w-2 h-2 rounded-full ${createStep >= 3 ? 'bg-agro-primary' : 'bg-gray-300'}`} />
-                    </div>
-                  </DialogTitle>
+                  <DialogTitle>Crear Nuevo Pedido</DialogTitle>
+                  <DialogDescription>
+                    Complete la información del pedido paso a paso
+                  </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    {/* Step 1: Información */}
-                    {createStep === 1 && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Paso 1: Información del Cliente</h3>
-                        <FormField
-                          control={form.control}
-                          name="clientId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cliente</FormLabel>
-                              <Select 
-                                onValueChange={(value) => {
-                                  field.onChange(value);
-                                  const client = Array.isArray(clients) ? clients.find((c: Client) => c.id === value) : null;
-                                  if (client) {
-                                    form.setValue("clientName", client.name);
-                                  }
-                                }}
-                                value={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-client">
-                                    <SelectValue placeholder="Seleccionar cliente" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {Array.isArray(clients) && clients.map((client: Client) => (
-                                    <SelectItem key={client.id} value={client.id}>
-                                      {client.name} - {client.clientType}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="priority"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Prioridad</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-priority">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="low">Baja</SelectItem>
-                                  <SelectItem value="normal">Normal</SelectItem>
-                                  <SelectItem value="high">Alta</SelectItem>
-                                  <SelectItem value="critical">Crítica</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="pickupAddress"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Dirección de Recogida</FormLabel>
-                                <FormControl>
-                                  <Textarea placeholder="Dirección completa..." {...field} data-testid="input-pickup" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="deliveryAddress"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Dirección de Entrega</FormLabel>
-                                <FormControl>
-                                  <Textarea placeholder="Dirección completa..." {...field} data-testid="input-delivery" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+
+                <Tabs value={createStep.toString()} className="w-full">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="1" disabled={createStep < 1}>Cliente</TabsTrigger>
+                    <TabsTrigger value="2" disabled={createStep < 2}>Direcciones</TabsTrigger>
+                    <TabsTrigger value="3" disabled={createStep < 3}>Productos</TabsTrigger>
+                    <TabsTrigger value="4" disabled={createStep < 4}>Confirmar</TabsTrigger>
+                  </TabsList>
+
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Paso 1: Cliente */}
+                    <TabsContent value="1" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="client_id">Cliente</Label>
+                          <Select
+                            onValueChange={(value) => {
+                              form.setValue("client_id", value);
+                              const client = clients.find(c => c.id === value);
+                              if (client) {
+                                form.setValue("client_name", client.name);
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar cliente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {clients.map((client) => (
+                                <SelectItem key={client.id} value={client.id}>
+                                  {client.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="flex justify-end">
-                          <Button type="button" onClick={handleStepNext}>Siguiente</Button>
+                        <div className="space-y-2">
+                          <Label htmlFor="priority">Prioridad</Label>
+                          <Select onValueChange={(value) => form.setValue("priority", value as any)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar prioridad" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Baja</SelectItem>
+                              <SelectItem value="medium">Media</SelectItem>
+                              <SelectItem value="high">Alta</SelectItem>
+                              <SelectItem value="urgent">Urgente</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                    )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="pickup_date">Fecha de Recogida</Label>
+                          <Input
+                            type="date"
+                            {...form.register("pickup_date", { valueAsDate: true })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="delivery_date">Fecha de Entrega</Label>
+                          <Input
+                            type="date"
+                            {...form.register("delivery_date", { valueAsDate: true })}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button type="button" onClick={() => setCreateStep(2)}>
+                          Siguiente
+                        </Button>
+                      </div>
+                    </TabsContent>
 
-                    {/* Step 2: Productos */}
-                    {createStep === 2 && (
+                    {/* Paso 2: Direcciones */}
+                    <TabsContent value="2" className="space-y-4">
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Paso 2: Productos</h3>
+                        <div className="space-y-2">
+                          <Label htmlFor="pickup_address">Dirección de Recogida</Label>
+                          <Textarea
+                            placeholder="Ingrese la dirección completa de recogida"
+                            {...form.register("pickup_address")}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="delivery_address">Dirección de Entrega</Label>
+                          <Textarea
+                            placeholder="Ingrese la dirección completa de entrega"
+                            {...form.register("delivery_address")}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="special_instructions">Instrucciones Especiales</Label>
+                          <Textarea
+                            placeholder="Instrucciones adicionales para la entrega"
+                            {...form.register("special_instructions")}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <Button type="button" variant="outline" onClick={() => setCreateStep(1)}>
+                          Anterior
+                        </Button>
+                        <Button type="button" onClick={() => setCreateStep(3)}>
+                          Siguiente
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    {/* Paso 3: Productos */}
+                    <TabsContent value="3" className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label>Productos</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => append({ name: "", quantity: 1, unit: "kg" })}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Agregar Producto
+                          </Button>
+                        </div>
                         {fields.map((field, index) => (
-                          <Card key={field.id} className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <FormField
-                                control={form.control}
-                                name={`products.${index}.name`}
-                                render={({ field }) => (
-                                  <FormItem className="md:col-span-2">
-                                    <FormLabel>Producto {index + 1}</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="Nombre del producto" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`products.${index}.quantity`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Cantidad</FormLabel>
-                                    <FormControl>
-                                      <Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`products.${index}.unit`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Unidad</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        <SelectItem value="kg">Kg</SelectItem>
-                                        <SelectItem value="ton">Ton</SelectItem>
-                                        <SelectItem value="units">Unidades</SelectItem>
-                                        <SelectItem value="boxes">Cajas</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
+                          <div key={field.id} className="grid grid-cols-4 gap-4 items-end">
+                            <div className="space-y-2">
+                              <Label>Nombre del Producto</Label>
+                              <Input
+                                placeholder="Nombre del producto"
+                                {...form.register(`products.${index}.name`)}
                               />
                             </div>
-                            {fields.length > 1 && (
-                              <div className="mt-2 flex justify-end">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => remove(index)}
-                                  className="text-alert-red"
-                                >
-                                  Eliminar
-                                </Button>
-                              </div>
-                            )}
-                          </Card>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => append({ name: "", quantity: 1, unit: "kg" })}
-                          className="w-full"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Agregar Producto
-                        </Button>
-                        <div className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handleStepBack}>Atrás</Button>
-                          <Button type="button" onClick={handleStepNext}>Siguiente</Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step 3: Programación */}
-                    {createStep === 3 && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Paso 3: Programación</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="scheduledPickup"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Fecha de Recogida</FormLabel>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        variant="outline"
-                                        className="w-full justify-start text-left font-normal"
-                                      >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {field.value ? format(field.value, "PPP", { locale: es }) : "Seleccionar fecha"}
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                      mode="single"
-                                      selected={field.value}
-                                      onSelect={field.onChange}
-                                      disabled={(date) => date < new Date()}
-                                      initialFocus
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="scheduledDelivery"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Fecha de Entrega</FormLabel>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        variant="outline"
-                                        className="w-full justify-start text-left font-normal"
-                                      >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {field.value ? format(field.value, "PPP", { locale: es }) : "Seleccionar fecha"}
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                      mode="single"
-                                      selected={field.value}
-                                      onSelect={field.onChange}
-                                      disabled={(date) => date < new Date()}
-                                      initialFocus
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <FormField
-                          control={form.control}
-                          name="specialInstructions"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Instrucciones Especiales</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Instrucciones de manejo, temperatura, etc..." 
-                                  {...field} 
-                                  data-testid="input-instructions"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex justify-between">
-                          <Button type="button" variant="outline" onClick={handleStepBack}>Atrás</Button>
-                          <div className="space-x-2">
-                            <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
-                            <Button type="submit">Crear Pedido</Button>
+                            <div className="space-y-2">
+                              <Label>Cantidad</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                min="0.1"
+                                placeholder="0.0"
+                                {...form.register(`products.${index}.quantity`, { valueAsNumber: true })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Unidad</Label>
+                              <Select
+                                onValueChange={(value) => form.setValue(`products.${index}.unit`, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Unidad" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="kg">Kilogramos</SelectItem>
+                                  <SelectItem value="g">Gramos</SelectItem>
+                                  <SelectItem value="l">Litros</SelectItem>
+                                  <SelectItem value="ml">Mililitros</SelectItem>
+                                  <SelectItem value="pcs">Piezas</SelectItem>
+                                  <SelectItem value="box">Cajas</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => remove(index)}
+                              disabled={fields.length === 1}
+                            >
+                              Eliminar
+                            </Button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    )}
+                      <div className="flex justify-between">
+                        <Button type="button" variant="outline" onClick={() => setCreateStep(2)}>
+                          Anterior
+                        </Button>
+                        <Button type="button" onClick={() => setCreateStep(4)}>
+                          Siguiente
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    {/* Paso 4: Confirmar */}
+                    <TabsContent value="4" className="space-y-4">
+                      <div className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Resumen del Pedido</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="font-semibold">Cliente:</Label>
+                                <p>{form.watch("client_name")}</p>
+                              </div>
+                              <div>
+                                <Label className="font-semibold">Prioridad:</Label>
+                                <Badge className={getPriorityColor(form.watch("priority"))}>
+                                  {getPriorityText(form.watch("priority"))}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label className="font-semibold">Fecha de Recogida:</Label>
+                                <p>{form.watch("pickup_date") ? format(form.watch("pickup_date"), "dd/MM/yyyy") : ""}</p>
+                              </div>
+                              <div>
+                                <Label className="font-semibold">Fecha de Entrega:</Label>
+                                <p>{form.watch("delivery_date") ? format(form.watch("delivery_date"), "dd/MM/yyyy") : ""}</p>
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="font-semibold">Dirección de Recogida:</Label>
+                              <p>{form.watch("pickup_address")}</p>
+                            </div>
+                            <div>
+                              <Label className="font-semibold">Dirección de Entrega:</Label>
+                              <p>{form.watch("delivery_address")}</p>
+                            </div>
+                            <div>
+                              <Label className="font-semibold">Productos:</Label>
+                              <div className="mt-2 space-y-2">
+                                {form.watch("products")?.map((product, index) => (
+                                  <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                    <span>{product.name}</span>
+                                    <span className="text-sm text-gray-600">
+                                      {product.quantity} {product.unit}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      <div className="flex justify-between">
+                        <Button type="button" variant="outline" onClick={() => setCreateStep(3)}>
+                          Anterior
+                        </Button>
+                        <Button type="submit" disabled={createOrderMutation.isPending}>
+                          {createOrderMutation.isPending ? "Creando..." : "Crear Pedido"}
+                        </Button>
+                      </div>
+                    </TabsContent>
                   </form>
-                </Form>
+                </Tabs>
               </DialogContent>
             </Dialog>
           </div>
 
-          {/* Filters */}
+          {/* Filtros y búsqueda */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Buscar por cliente o dirección..."
+                placeholder="Buscar pedidos..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
-                data-testid="input-search-orders"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48" data-testid="select-filter-status">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="pending">Pendiente</SelectItem>
                 <SelectItem value="assigned">Asignado</SelectItem>
-                <SelectItem value="in_transit">En tránsito</SelectItem>
+                <SelectItem value="in_transit">En Tránsito</SelectItem>
                 <SelectItem value="delivered">Entregado</SelectItem>
                 <SelectItem value="cancelled">Cancelado</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Orders Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {isLoading ? (
-              [...Array(6)].map((_, i) => (
-                <Card key={i} className="rounded-xl shadow-sm border border-gray-200">
-                  <CardContent className="p-6">
-                    <div className="h-48 bg-gray-100 rounded-lg animate-pulse" />
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              filteredOrders.map((order: Order) => {
-                const products = Array.isArray(order.products) ? order.products : [];
-                
-                return (
-                  <Card key={order.id} className="rounded-xl shadow-sm border border-gray-200">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg" data-testid={`order-client-${order.id}`}>
-                          {order.clientName}
-                        </CardTitle>
-                        <Badge className={getStatusColor(order.status)} data-testid={`order-status-${order.id}`}>
-                          {getStatusLabel(order.status)}
+          {/* Lista de pedidos */}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Cargando pedidos...</p>
+              </div>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center h-64">
+                <Package className="h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay pedidos</h3>
+                <p className="text-gray-600 text-center mb-4">
+                  {searchQuery || statusFilter !== "all"
+                    ? "No se encontraron pedidos con los filtros aplicados"
+                    : "Comience creando su primer pedido"}
+                </p>
+                {!searchQuery && statusFilter === "all" && (
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear Primer Pedido
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredOrders.map((order) => (
+                <Card key={order.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">Pedido #{order.id?.slice(-8)}</CardTitle>
+                        <CardDescription className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {order.client_name}
+                        </CardDescription>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge className={getStatusColor(order.status)}>
+                          {getStatusText(order.status)}
+                        </Badge>
+                        <Badge className={getPriorityColor(order.priority)}>
+                          {getPriorityText(order.priority)}
                         </Badge>
                       </div>
-                      {order.priority && order.priority !== "normal" && (
-                        <div className={`text-sm font-medium ${getPriorityColor(order.priority)}`}>
-                          Prioridad: {order.priority === "critical" ? "Crítica" : order.priority === "high" ? "Alta" : "Baja"}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <MapPin className="h-4 w-4" />
+                          <span className="font-medium">Recogida:</span>
+                          <span className="truncate">{order.pickup_address}</span>
                         </div>
-                      )}
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-4">
-                        {/* Products Summary */}
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="flex items-center mb-2">
-                            <Package className="w-4 h-4 mr-2 text-gray-500" />
-                            <span className="text-sm font-medium">Productos ({products.length})</span>
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {products.slice(0, 2).map((product: any, index: number) => (
-                              <div key={index} className="flex justify-between">
-                                <span>{product.name}</span>
-                                <span>{product.quantity} {product.unit}</span>
-                              </div>
-                            ))}
-                            {products.length > 2 && (
-                              <div className="text-gray-500 mt-1">+{products.length - 2} productos más</div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Details */}
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start">
-                            <MapPin className="w-4 h-4 mr-2 mt-0.5 text-gray-500" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">Entrega:</p>
-                              <p className="text-gray-600 truncate">{order.deliveryAddress}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center">
-                            <Weight className="w-4 h-4 mr-2 text-gray-500" />
-                            <span>Peso total: {order.totalWeight || 0} kg</span>
-                          </div>
-                          {order.scheduledDelivery && (
-                            <div className="flex items-center">
-                              <Clock className="w-4 h-4 mr-2 text-gray-500" />
-                              <span>Programado: {format(new Date(order.scheduledDelivery), "dd/MM/yyyy", { locale: es })}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Special Instructions */}
-                        {order.specialInstructions && (
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <div className="flex items-start">
-                              <Thermometer className="w-4 h-4 mr-2 mt-0.5 text-blue-500" />
-                              <div className="text-sm">
-                                <p className="font-medium text-blue-700">Instrucciones Especiales:</p>
-                                <p className="text-blue-600">{order.specialInstructions}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex space-x-2 pt-2 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            data-testid={`button-edit-order-${order.id}`}
-                          >
-                            Ver Detalles
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-logistics-blue hover:text-blue-700"
-                            data-testid={`button-track-order-${order.id}`}
-                          >
-                            <MapPin className="w-4 h-4" />
-                          </Button>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <MapPin className="h-4 w-4" />
+                          <span className="font-medium">Entrega:</span>
+                          <span className="truncate">{order.delivery_address}</span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="h-4 w-4" />
+                          <span className="font-medium">Recogida:</span>
+                          <span>{order.pickup_date ? format(new Date(order.pickup_date), "dd/MM/yyyy") : "N/A"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="h-4 w-4" />
+                          <span className="font-medium">Entrega:</span>
+                          <span>{order.delivery_date ? format(new Date(order.delivery_date), "dd/MM/yyyy") : "N/A"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {order.special_instructions && (
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-blue-900">Instrucciones Especiales</p>
+                            <p className="text-sm text-blue-700">{order.special_instructions}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-          {filteredOrders.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay pedidos</h3>
-              <p className="text-gray-600 mb-4">
-                {searchQuery || statusFilter !== "all" ? "No se encontraron pedidos con los filtros aplicados" : "Comienza creando tu primer pedido"}
-              </p>
-              <Button 
-                onClick={() => setIsCreateDialogOpen(true)}
-                className="bg-agro-primary hover:bg-agro-primary/90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Pedido
-              </Button>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        {order.weight && (
+                          <div className="flex items-center gap-1">
+                            <Package className="h-4 w-4" />
+                            <span>{order.weight} kg</span>
+                          </div>
+                        )}
+                        {order.volume && (
+                          <div className="flex items-center gap-1">
+                            <Package className="h-4 w-4" />
+                            <span>{order.volume} m³</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm">
+                          Ver Detalles
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          Editar
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </main>
