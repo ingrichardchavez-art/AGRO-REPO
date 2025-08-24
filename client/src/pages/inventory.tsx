@@ -11,13 +11,40 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { AlertTriangle, Plus, Search, Filter, Package2, TrendingDown, TrendingUp, Edit } from "lucide-react";
+import { AlertTriangle, Plus, Search, Filter, Package2, TrendingDown, TrendingUp, Edit, Calendar } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Inventory, InsertInventory } from "@shared/schema";
-import { insertInventorySchema } from "@shared/schema";
+import { z } from "zod";
+
+// Esquema para el formulario de creación
+const createInventorySchema = z.object({
+  product_name: z.string().min(1, "El nombre del producto es requerido"),
+  category: z.string().min(1, "La categoría es requerida"),
+  quantity: z.number().min(0, "La cantidad debe ser mayor o igual a 0"),
+  unit: z.string().min(1, "La unidad es requerida"),
+  price_per_unit: z.number().min(0, "El precio debe ser mayor o igual a 0"),
+  supplier: z.string().min(1, "El proveedor es requerido"),
+  location: z.string().min(1, "La ubicación es requerida"),
+});
+
+type CreateInventoryData = z.infer<typeof createInventorySchema>;
+
+// Interfaz para los items de inventario del servidor
+interface InventoryItem {
+  id: string;
+  product_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  price_per_unit: number;
+  supplier: string;
+  expiry_date: string;
+  location: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function InventoryPage() {
   const isMobile = useIsMobile();
@@ -33,7 +60,7 @@ export default function InventoryPage() {
   });
 
   const createItemMutation = useMutation({
-    mutationFn: async (data: InsertInventory) => apiRequest("/api/inventory", "POST", data),
+    mutationFn: async (data: CreateInventoryData) => apiRequest("/api/inventory", "POST", data),
     onSuccess: () => {
       toast({
         title: "Item agregado",
@@ -51,34 +78,32 @@ export default function InventoryPage() {
     },
   });
 
-  const form = useForm<InsertInventory>({
-    resolver: zodResolver(insertInventorySchema),
+  const form = useForm<CreateInventoryData>({
+    resolver: zodResolver(createInventorySchema),
     defaultValues: {
-      itemName: "",
-      category: "spare_parts",
-      sku: "",
-      currentStock: 0,
-      minStock: 0,
-      maxStock: 100,
-      unitCost: "0",
+      product_name: "",
+      category: "frutas",
+      quantity: 0,
+      unit: "kg",
+      price_per_unit: 0,
       supplier: "",
       location: "",
     },
   });
 
-  const onSubmit = (data: InsertInventory) => {
+  const onSubmit = (data: CreateInventoryData) => {
     createItemMutation.mutate(data);
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case "spare_parts":
+      case "frutas":
         return "bg-logistics-blue text-white";
-      case "fuel":
-        return "bg-warning-amber text-white";
-      case "supplies":
+      case "verduras":
         return "bg-success-green text-white";
-      case "tools":
+      case "tuberculos":
+        return "bg-warning-amber text-white";
+      case "granos":
         return "bg-gray-500 text-white";
       default:
         return "bg-gray-400 text-white";
@@ -87,41 +112,49 @@ export default function InventoryPage() {
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case "spare_parts":
-        return "Repuestos";
-      case "fuel":
-        return "Combustible";
-      case "supplies":
-        return "Suministros";
-      case "tools":
-        return "Herramientas";
+      case "frutas":
+        return "Frutas";
+      case "verduras":
+        return "Verduras";
+      case "tuberculos":
+        return "Tubérculos";
+      case "granos":
+        return "Granos";
       default:
         return "Otro";
     }
   };
 
-  const getStockStatus = (item: Inventory) => {
-    const currentStock = item.currentStock || 0;
-    const minStock = item.minStock || 0;
+  const getStockStatus = (item: InventoryItem) => {
+    const quantity = item.quantity || 0;
     
-    if (currentStock <= minStock) {
+    if (quantity <= 100) {
       return { status: "critical", label: "Crítico", color: "text-alert-red" };
-    } else if (currentStock <= minStock * 1.5) {
+    } else if (quantity <= 500) {
       return { status: "low", label: "Bajo", color: "text-warning-amber" };
     } else {
       return { status: "normal", label: "Normal", color: "text-success-green" };
     }
   };
 
-  const filteredInventory = Array.isArray(inventory) ? inventory.filter((item: Inventory) => {
-    const matchesSearch = item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchQuery.toLowerCase());
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const filteredInventory = Array.isArray(inventory) ? inventory.filter((item: InventoryItem) => {
+    const matchesSearch = item.product_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         item.supplier.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
   }) : [];
 
-  const lowStockItems = Array.isArray(inventory) ? inventory.filter((item: Inventory) => 
-    (item.currentStock || 0) <= (item.minStock || 0)
+  const lowStockItems = Array.isArray(inventory) ? inventory.filter((item: InventoryItem) => 
+    (item.quantity || 0) <= 100
   ) : [];
 
   return (
@@ -151,7 +184,7 @@ export default function InventoryPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-              <p className="text-gray-600">Gestión de repuestos, suministros y herramientas</p>
+              <p className="text-gray-600">Gestión de productos agrícolas y suministros</p>
             </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -160,42 +193,29 @@ export default function InventoryPage() {
                   data-testid="button-add-item"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Agregar Item
+                  Agregar Producto
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Nuevo Item de Inventario</DialogTitle>
+                  <DialogTitle>Nuevo Producto de Inventario</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="itemName"
+                      name="product_name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Nombre del Item</FormLabel>
+                          <FormLabel>Nombre del Producto</FormLabel>
                           <FormControl>
-                            <Input placeholder="Filtro de aceite 15W40" {...field} />
+                            <Input placeholder="Banano Premium" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="sku"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SKU</FormLabel>
-                            <FormControl>
-                              <Input placeholder="FLT-15W40" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                       <FormField
                         control={form.control}
                         name="category"
@@ -209,10 +229,33 @@ export default function InventoryPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="spare_parts">Repuestos</SelectItem>
-                                <SelectItem value="fuel">Combustible</SelectItem>
-                                <SelectItem value="supplies">Suministros</SelectItem>
-                                <SelectItem value="tools">Herramientas</SelectItem>
+                                <SelectItem value="frutas">Frutas</SelectItem>
+                                <SelectItem value="verduras">Verduras</SelectItem>
+                                <SelectItem value="tuberculos">Tubérculos</SelectItem>
+                                <SelectItem value="granos">Granos</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="unit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Unidad</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="kg">Kilogramos</SelectItem>
+                                <SelectItem value="g">Gramos</SelectItem>
+                                <SelectItem value="l">Litros</SelectItem>
+                                <SelectItem value="un">Unidades</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -220,13 +263,13 @@ export default function InventoryPage() {
                         )}
                       />
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="currentStock"
+                        name="quantity"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Stock Actual</FormLabel>
+                            <FormLabel>Cantidad</FormLabel>
                             <FormControl>
                               <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
                             </FormControl>
@@ -236,25 +279,12 @@ export default function InventoryPage() {
                       />
                       <FormField
                         control={form.control}
-                        name="minStock"
+                        name="price_per_unit"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Stock Mín</FormLabel>
+                            <FormLabel>Precio por Unidad</FormLabel>
                             <FormControl>
-                              <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="maxStock"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Stock Máx</FormLabel>
-                            <FormControl>
-                              <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                              <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -264,12 +294,12 @@ export default function InventoryPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="unitCost"
+                        name="supplier"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Costo Unitario</FormLabel>
+                            <FormLabel>Proveedor</FormLabel>
                             <FormControl>
-                              <Input placeholder="0.00" {...field} />
+                              <Input placeholder="Finca La Esperanza" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -282,7 +312,7 @@ export default function InventoryPage() {
                           <FormItem>
                             <FormLabel>Ubicación</FormLabel>
                             <FormControl>
-                              <Input placeholder="Almacén A-1" {...field} />
+                              <Input placeholder="Bodega A - Sección 1" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -310,7 +340,7 @@ export default function InventoryPage() {
                   <div>
                     <h3 className="font-semibold text-alert-red">Alerta de Stock Bajo</h3>
                     <p className="text-sm text-red-700">
-                      {lowStockItems.length} item{lowStockItems.length > 1 ? 's' : ''} necesita{lowStockItems.length === 1 ? '' : 'n'} reposición
+                      {lowStockItems.length} producto{lowStockItems.length > 1 ? 's' : ''} necesita{lowStockItems.length === 1 ? '' : 'n'} reposición
                     </p>
                   </div>
                 </div>
@@ -323,7 +353,7 @@ export default function InventoryPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Buscar por nombre o SKU..."
+                placeholder="Buscar por nombre o proveedor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -336,10 +366,10 @@ export default function InventoryPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
-                <SelectItem value="spare_parts">Repuestos</SelectItem>
-                <SelectItem value="fuel">Combustible</SelectItem>
-                <SelectItem value="supplies">Suministros</SelectItem>
-                <SelectItem value="tools">Herramientas</SelectItem>
+                <SelectItem value="frutas">Frutas</SelectItem>
+                <SelectItem value="verduras">Verduras</SelectItem>
+                <SelectItem value="tuberculos">Tubérculos</SelectItem>
+                <SelectItem value="granos">Granos</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -355,9 +385,9 @@ export default function InventoryPage() {
                 </Card>
               ))
             ) : (
-              filteredInventory.map((item: Inventory) => {
+              filteredInventory.map((item: InventoryItem) => {
                 const stockStatus = getStockStatus(item);
-                const stockPercentage = Math.min((item.currentStock / Math.max(item.maxStock, 1)) * 100, 100);
+                const stockPercentage = Math.min((item.quantity / Math.max(item.quantity * 2, 1)) * 100, 100);
                 
                 return (
                   <Card key={item.id} className="rounded-xl shadow-sm border border-gray-200">
@@ -368,8 +398,8 @@ export default function InventoryPage() {
                             <Package2 className="w-5 h-5 text-gray-600" />
                           </div>
                           <div>
-                            <CardTitle className="text-base">{item.itemName}</CardTitle>
-                            <p className="text-sm text-gray-500">{item.sku}</p>
+                            <CardTitle className="text-base">{item.product_name}</CardTitle>
+                            <p className="text-sm text-gray-500">{item.supplier}</p>
                           </div>
                         </div>
                         <Badge className={getCategoryColor(item.category)}>
@@ -384,7 +414,7 @@ export default function InventoryPage() {
                           <span className="text-sm text-gray-600">Stock</span>
                           <div className="flex items-center">
                             <span className={`text-sm font-medium ${stockStatus.color}`}>
-                              {item.currentStock} / {item.maxStock}
+                              {item.quantity} {item.unit}
                             </span>
                             {stockStatus.status === "low" && <TrendingDown className="w-3 h-3 ml-1 text-warning-amber" />}
                             {stockStatus.status === "critical" && <AlertTriangle className="w-3 h-3 ml-1 text-alert-red" />}
@@ -405,16 +435,23 @@ export default function InventoryPage() {
                         {/* Details */}
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
-                            <span className="text-gray-500">Mínimo:</span>
-                            <p className="font-medium">{item.minStock}</p>
+                            <span className="text-gray-500">Precio:</span>
+                            <p className="font-medium">${item.price_per_unit.toLocaleString()}</p>
                           </div>
                           <div>
-                            <span className="text-gray-500">Costo:</span>
-                            <p className="font-medium">${item.unitCost}</p>
+                            <span className="text-gray-500">Total:</span>
+                            <p className="font-medium">${(item.quantity * item.price_per_unit).toLocaleString()}</p>
                           </div>
                           <div className="col-span-2">
                             <span className="text-gray-500">Ubicación:</span>
                             <p className="font-medium">{item.location || "No especificada"}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-gray-500">Vencimiento:</span>
+                            <p className="font-medium flex items-center">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {formatDate(item.expiry_date)}
+                            </p>
                           </div>
                         </div>
 
@@ -443,13 +480,13 @@ export default function InventoryPage() {
           {filteredInventory.length === 0 && !isLoading && (
             <div className="text-center py-12">
               <Package2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay items en inventario</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay productos en inventario</h3>
               <p className="text-gray-600 mb-4">
-                {searchQuery || categoryFilter !== "all" ? "No se encontraron items con los filtros aplicados" : "Comienza agregando tu primer item al inventario"}
+                {searchQuery || categoryFilter !== "all" ? "No se encontraron productos con los filtros aplicados" : "Comienza agregando tu primer producto al inventario"}
               </p>
               <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-agro-primary hover:bg-agro-primary/90">
                 <Plus className="w-4 h-4 mr-2" />
-                Agregar Item
+                Agregar Producto
               </Button>
             </div>
           )}
