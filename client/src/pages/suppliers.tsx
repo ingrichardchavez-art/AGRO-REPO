@@ -36,7 +36,7 @@ export default function SuppliersPage() {
   });
 
   const createSupplierMutation = useMutation({
-    mutationFn: async (data: InsertSupplier) => apiRequest("/api/suppliers", "POST", data),
+    mutationFn: async (data: InsertSupplier) => apiRequest("POST", "/api/suppliers", data),
     onSuccess: () => {
       toast({
         title: "Proveedor agregado",

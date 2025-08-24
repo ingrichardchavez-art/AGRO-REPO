@@ -40,7 +40,7 @@ export default function MaintenancePage() {
   });
 
   const createMaintenanceMutation = useMutation({
-    mutationFn: async (data: InsertMaintenance) => apiRequest("/api/maintenance", "POST", data),
+    mutationFn: async (data: InsertMaintenance) => apiRequest("POST", "/api/maintenance", data),
     onSuccess: () => {
       toast({
         title: "Mantenimiento programado",

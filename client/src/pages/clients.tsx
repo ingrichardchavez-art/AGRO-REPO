@@ -36,7 +36,7 @@ export default function Clients() {
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (data: InsertClient) => apiRequest("/api/clients", "POST", data),
+    mutationFn: async (data: InsertClient) => apiRequest("POST", "/api/clients", data),
     onSuccess: () => {
       toast({
         title: "Cliente creado",
@@ -56,7 +56,7 @@ export default function Clients() {
 
   const updateClientMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Client> }) =>
-      apiRequest(`/api/clients/${id}`, "PATCH", data),
+      apiRequest("PATCH", `/api/clients/${id}`, data),
     onSuccess: () => {
       toast({
         title: "Cliente actualizado",
@@ -176,8 +176,8 @@ export default function Clients() {
       email: client.email || "",
       phone: client.phone || "",
       address: client.address,
-      clientType: client.clientType,
-      priority: client.priority || "normal",
+      clientType: client.clientType as "customer" | "supplier" | "distributor",
+      priority: (client.priority || "normal") as "low" | "normal" | "high" | "critical",
     });
   };
 

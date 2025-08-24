@@ -36,9 +36,8 @@ interface Client {
   email: string;
   phone: string;
   address: string;
-  type: string;
-  credit_limit: number;
-  payment_terms: string;
+  clientType: string;
+  priority: string;
   created_at: string;
   updated_at: string;
 }
@@ -343,9 +342,8 @@ async function insertInMemoryData() {
       email: 'compras@supercentral.com',
       phone: '+57 601 234 5678',
       address: 'Calle 100 #50-25, Bogotá',
-      type: 'retail',
-      credit_limit: 10000000,
-      payment_terms: '30 días',
+      clientType: 'customer',
+      priority: 'high',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -355,9 +353,8 @@ async function insertInMemoryData() {
       email: 'pedidos@mayorista.com',
       phone: '+57 602 345 6789',
       address: 'Carrera 68 #13-45, Bogotá',
-      type: 'wholesale',
-      credit_limit: 25000000,
-      payment_terms: '45 días',
+      clientType: 'distributor',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -367,9 +364,8 @@ async function insertInMemoryData() {
       email: 'chef@gourmetplaza.com',
       phone: '+57 603 456 7890',
       address: 'Zona Rosa, Calle 82 #12-18, Bogotá',
-      type: 'retail',
-      credit_limit: 5000000,
-      payment_terms: '15 días',
+      clientType: 'customer',
+      priority: 'critical',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -379,9 +375,8 @@ async function insertInMemoryData() {
       email: 'compras@procesadora.com',
       phone: '+57 604 567 8901',
       address: 'Zona Industrial, Calle 13 Sur #45-67, Bogotá',
-      type: 'industrial',
-      credit_limit: 50000000,
-      payment_terms: '60 días',
+      clientType: 'supplier',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -391,9 +386,8 @@ async function insertInMemoryData() {
       email: 'gerencia@mercadocampesino.com',
       phone: '+57 605 678 9012',
       address: 'Calle 170 #7-85, Bogotá',
-      type: 'wholesale',
-      credit_limit: 15000000,
-      payment_terms: '30 días',
+      clientType: 'distributor',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -870,9 +864,8 @@ async function insertSampleData() {
       email: 'compras@supercentral.com',
       phone: '+57 601 234 5678',
       address: 'Calle 100 #50-25, Bogotá',
-      type: 'retail',
-      credit_limit: 10000000,
-      payment_terms: '30 días',
+      clientType: 'customer',
+      priority: 'high',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -882,9 +875,8 @@ async function insertSampleData() {
       email: 'pedidos@mayorista.com',
       phone: '+57 602 345 6789',
       address: 'Carrera 68 #13-45, Bogotá',
-      type: 'wholesale',
-      credit_limit: 25000000,
-      payment_terms: '45 días',
+      clientType: 'distributor',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -894,9 +886,8 @@ async function insertSampleData() {
       email: 'chef@gourmetplaza.com',
       phone: '+57 603 456 7890',
       address: 'Zona Rosa, Calle 82 #12-18, Bogotá',
-      type: 'retail',
-      credit_limit: 5000000,
-      payment_terms: '15 días',
+      clientType: 'customer',
+      priority: 'critical',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -906,9 +897,8 @@ async function insertSampleData() {
       email: 'compras@procesadora.com',
       phone: '+57 604 567 8901',
       address: 'Zona Industrial, Calle 13 Sur #45-67, Bogotá',
-      type: 'industrial',
-      credit_limit: 50000000,
-      payment_terms: '60 días',
+      clientType: 'supplier',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
@@ -918,9 +908,8 @@ async function insertSampleData() {
       email: 'gerencia@mercadocampesino.com',
       phone: '+57 605 678 9012',
       address: 'Calle 170 #7-85, Bogotá',
-      type: 'wholesale',
-      credit_limit: 15000000,
-      payment_terms: '30 días',
+      clientType: 'distributor',
+      priority: 'normal',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }

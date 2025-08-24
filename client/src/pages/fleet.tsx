@@ -36,7 +36,7 @@ export default function Fleet() {
   });
 
   const createVehicleMutation = useMutation({
-    mutationFn: async (data: InsertVehicle) => apiRequest("/api/vehicles", "POST", data),
+    mutationFn: async (data: InsertVehicle) => apiRequest("POST", "/api/vehicles", data),
     onSuccess: () => {
       toast({
         title: "Vehículo creado",
@@ -56,7 +56,7 @@ export default function Fleet() {
 
   const updateVehicleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Vehicle> }) =>
-      apiRequest(`/api/vehicles/${id}`, "PATCH", data),
+      apiRequest("PATCH", `/api/vehicles/${id}`, data),
     onSuccess: () => {
       toast({
         title: "Vehículo actualizado",

@@ -13,12 +13,28 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Fuel, Plus, Search, TrendingUp, TrendingDown, BarChart3, Calendar } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { FuelLog, InsertFuelLog } from "@shared/schema";
+import type { InsertFuelLog, FuelLog } from "@/lib/types";
 import { insertFuelLogSchema } from "@shared/schema";
+
+// Esquema del formulario que maneja campos opcionales
+const fuelLogFormSchema = z.object({
+  vehicleId: z.string().min(1, "El vehículo es requerido"),
+  driverId: z.string().optional(),
+  liters: z.string().min(1, "Los litros son requeridos"),
+  costPerLiter: z.string().min(1, "El precio por litro es requerido"),
+  totalCost: z.string().min(1, "El costo total es requerido"),
+  fuelStation: z.string().optional(),
+  receiptNumber: z.string().optional(),
+  odometer: z.string().optional(),
+  filledAt: z.string().min(1, "La fecha es requerida"),
+});
+
+type FuelLogFormData = z.infer<typeof fuelLogFormSchema>;
 
 export default function FuelPage() {
   const isMobile = useIsMobile();
@@ -42,7 +58,7 @@ export default function FuelPage() {
   });
 
   const createFuelLogMutation = useMutation({
-    mutationFn: async (data: InsertFuelLog) => apiRequest("/api/fuel", "POST", data),
+    mutationFn: async (data: InsertFuelLog) => apiRequest("POST", "/api/fuel", data),
     onSuccess: () => {
       toast({
         title: "Carga de combustible registrada",
@@ -60,8 +76,8 @@ export default function FuelPage() {
     },
   });
 
-  const form = useForm<InsertFuelLog>({
-    resolver: zodResolver(insertFuelLogSchema),
+  const form = useForm<FuelLogFormData>({
+    resolver: zodResolver(fuelLogFormSchema),
     defaultValues: {
       vehicleId: "",
       driverId: "",
@@ -70,6 +86,7 @@ export default function FuelPage() {
       totalCost: "0",
       fuelStation: "",
       receiptNumber: "",
+      odometer: "",
       filledAt: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     },
   });
@@ -85,24 +102,37 @@ export default function FuelPage() {
     form.setValue("totalCost", totalCost);
   }, [watchedLiters, watchedCostPerLiter, form]);
 
-  const onSubmit = (data: InsertFuelLog) => {
-    createFuelLogMutation.mutate(data);
+  const onSubmit = (data: FuelLogFormData) => {
+    // Transformar los datos del formulario al formato esperado por la API
+    const transformedData: InsertFuelLog = {
+      vehicle_id: data.vehicleId,
+      driver_id: data.driverId || undefined,
+      liters: parseFloat(data.liters),
+      cost_per_liter: parseFloat(data.costPerLiter),
+      total_cost: parseFloat(data.totalCost),
+      fuel_station: data.fuelStation || undefined,
+      receipt_number: data.receiptNumber || undefined,
+      odometer: data.odometer ? parseInt(data.odometer) : undefined,
+      filled_at: data.filledAt,
+    };
+    
+    createFuelLogMutation.mutate(transformedData);
   };
 
   const filteredFuelLogs = Array.isArray(fuelLogs) ? fuelLogs.filter((log: FuelLog) => {
-    const matchesSearch = log.fuelStation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         log.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesVehicle = vehicleFilter === "all" || log.vehicleId === vehicleFilter;
+    const matchesSearch = log.fuel_station?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         log.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesVehicle = vehicleFilter === "all" || log.vehicle_id === vehicleFilter;
     return matchesSearch && matchesVehicle;
   }) : [];
 
   // Calculate fuel analytics
   const totalSpent = Array.isArray(fuelLogs) ? fuelLogs.reduce((sum: number, log: FuelLog) => 
-    sum + (parseFloat(log.totalCost) || 0), 0
+    sum + (log.total_cost || 0), 0
   ) : 0;
 
   const totalLiters = Array.isArray(fuelLogs) ? fuelLogs.reduce((sum: number, log: FuelLog) => 
-    sum + (parseFloat(log.liters) || 0), 0
+    sum + (log.liters || 0), 0
   ) : 0;
 
   const averageCostPerLiter = totalLiters > 0 ? totalSpent / totalLiters : 0;
@@ -180,7 +210,7 @@ export default function FuelPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Conductor</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Seleccionar conductor" />
@@ -299,7 +329,6 @@ export default function FuelPage() {
                                 type="number" 
                                 placeholder="125000" 
                                 {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value))}
                               />
                             </FormControl>
                             <FormMessage />
@@ -429,9 +458,9 @@ export default function FuelPage() {
                           <Fuel className="w-6 h-6 text-gray-600" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{log.fuelStation || "Estación no especificada"}</h3>
+                          <h3 className="font-semibold text-gray-900">{log.fuel_station || "Estación no especificada"}</h3>
                           <p className="text-sm text-gray-500">
-                            {log.filledAt ? format(new Date(log.filledAt), "PPpp", { locale: es }) : "Fecha no especificada"}
+                            {log.filled_at ? format(new Date(log.filled_at), "PPpp", { locale: es }) : "Fecha no especificada"}
                           </p>
                         </div>
                       </div>
@@ -442,18 +471,18 @@ export default function FuelPage() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Precio/L</p>
-                          <p className="font-semibold">${log.costPerLiter}</p>
+                          <p className="font-semibold">${log.cost_per_liter}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Total</p>
-                          <p className="text-lg font-bold text-green-600">${log.totalCost}</p>
+                          <p className="text-lg font-bold text-green-600">${log.total_cost}</p>
                         </div>
                       </div>
                     </div>
-                    {log.receiptNumber && (
+                    {log.receipt_number && (
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <p className="text-sm text-gray-500">
-                          Ticket: <span className="font-medium">{log.receiptNumber}</span>
+                          Ticket: <span className="font-medium">{log.receipt_number}</span>
                           {log.odometer && <span className="ml-4">Odómetro: <span className="font-medium">{log.odometer.toLocaleString()} km</span></span>}
                         </p>
                       </div>

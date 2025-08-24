@@ -3,6 +3,7 @@ import { pgTable, text, varchar, integer, decimal, timestamp, boolean, jsonb, da
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Esquemas de base de datos para Drizzle ORM
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -118,63 +119,6 @@ export const deliveries = pgTable("deliveries", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertVehicleSchema = createInsertSchema(vehicles).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  capacity: z.string().or(z.number()),
-  currentLoad: z.string().or(z.number()).optional(),
-  fuelLevel: z.string().or(z.number()).optional(),
-  fuelType: z.string().default("diesel"),
-  maintenanceStatus: z.string().default("good"),
-  location: z.string().optional(),
-  lastMaintenance: z.string().optional(),
-  nextMaintenance: z.string().optional(),
-  insuranceExpiry: z.string().optional(),
-  registrationExpiry: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export const insertClientSchema = createInsertSchema(clients).omit({
-  id: true,
-  createdAt: true,
-}).extend({
-  email: z.string().email("Email inválido").optional(),
-  phone: z.string().optional(),
-  clientType: z.enum(["customer", "supplier", "distributor"]),
-  priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
-});
-
-export const insertOrderSchema = createInsertSchema(orders).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertRouteSchema = createInsertSchema(routes).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertAlertSchema = createInsertSchema(alerts).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertDeliverySchema = createInsertSchema(deliveries).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 // ERP Logistics Extensions
 export const inventory = pgTable("inventory", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -284,7 +228,63 @@ export const expenses = pgTable("expenses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Additional Insert Schemas
+// Esquemas de inserción para validación con Zod
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  capacity: z.string().or(z.number()),
+  currentLoad: z.string().or(z.number()).optional(),
+  fuelLevel: z.string().or(z.number()).optional(),
+  fuelType: z.string().default("diesel"),
+  maintenanceStatus: z.string().default("good"),
+  location: z.string().optional(),
+  lastMaintenance: z.string().optional(),
+  nextMaintenance: z.string().optional(),
+  insuranceExpiry: z.string().optional(),
+  registrationExpiry: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const insertClientSchema = createInsertSchema(clients).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  email: z.string().email("Email inválido").optional(),
+  phone: z.string().optional(),
+  clientType: z.enum(["customer", "supplier", "distributor"]),
+  priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRouteSchema = createInsertSchema(routes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAlertSchema = createInsertSchema(alerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDeliverySchema = createInsertSchema(deliveries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertInventorySchema = createInsertSchema(inventory).omit({
   id: true,
   createdAt: true,
@@ -324,7 +324,7 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
   createdAt: true,
 });
 
-// Types
+// Tipos TypeScript inferidos de los esquemas
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
@@ -346,7 +346,6 @@ export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type Delivery = typeof deliveries.$inferSelect;
 export type InsertDelivery = z.infer<typeof insertDeliverySchema>;
 
-// ERP Types
 export type Inventory = typeof inventory.$inferSelect;
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 

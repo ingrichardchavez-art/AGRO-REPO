@@ -43,7 +43,7 @@ export default function Routes() {
   });
 
   const createRouteMutation = useMutation({
-    mutationFn: async (data: InsertRoute) => apiRequest("/api/routes", "POST", data),
+    mutationFn: async (data: InsertRoute) => apiRequest("POST", "/api/routes", data),
     onSuccess: () => {
       toast({
         title: "Ruta creada",
@@ -77,7 +77,7 @@ export default function Routes() {
         status: "active"
       };
 
-      return apiRequest(`/api/routes/${routeId}`, "PATCH", optimizedData);
+      return apiRequest("PATCH", `/api/routes/${routeId}`, optimizedData);
     },
     onSuccess: () => {
       toast({

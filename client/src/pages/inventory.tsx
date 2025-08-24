@@ -60,7 +60,7 @@ export default function InventoryPage() {
   });
 
   const createItemMutation = useMutation({
-    mutationFn: async (data: CreateInventoryData) => apiRequest("/api/inventory", "POST", data),
+    mutationFn: async (data: CreateInventoryData) => apiRequest("POST", "/api/inventory", data),
     onSuccess: () => {
       toast({
         title: "Item agregado",

@@ -46,7 +46,7 @@ export default function FinancesPage() {
   });
 
   const createExpenseMutation = useMutation({
-    mutationFn: async (data: InsertExpense) => apiRequest("/api/expenses", "POST", data),
+    mutationFn: async (data: InsertExpense) => apiRequest("POST", "/api/expenses", data),
     onSuccess: () => {
       toast({
         title: "Gasto registrado",
@@ -65,7 +65,7 @@ export default function FinancesPage() {
   });
 
   const createApprovalMutation = useMutation({
-    mutationFn: async (data: InsertApproval) => apiRequest("/api/approvals", "POST", data),
+    mutationFn: async (data: InsertApproval) => apiRequest("POST", "/api/approvals", data),
     onSuccess: () => {
       toast({
         title: "Solicitud de aprobación enviada",
