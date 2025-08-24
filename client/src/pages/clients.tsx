@@ -54,6 +54,26 @@ export default function Clients() {
     },
   });
 
+  const updateClientMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Client> }) =>
+      apiRequest(`/api/clients/${id}`, "PATCH", data),
+    onSuccess: () => {
+      toast({
+        title: "Cliente actualizado",
+        description: "El cliente ha sido actualizado exitosamente",
+      });
+      setEditingClient(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el cliente",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<InsertClient>({
     resolver: zodResolver(insertClientSchema),
     defaultValues: {
@@ -67,7 +87,11 @@ export default function Clients() {
   });
 
   const onSubmit = (data: InsertClient) => {
-    createClientMutation.mutate(data);
+    if (editingClient) {
+      updateClientMutation.mutate({ id: editingClient.id, data });
+    } else {
+      createClientMutation.mutate(data);
+    }
   };
 
   const getClientTypeColor = (type: string) => {
@@ -279,7 +303,7 @@ export default function Clients() {
                           <FormItem>
                             <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="contacto@empresa.com" {...field} data-testid="input-email" />
+                              <Input type="email" placeholder="contacto@empresa.com" {...field} value={field.value || ""} data-testid="input-email" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -292,7 +316,7 @@ export default function Clients() {
                           <FormItem>
                             <FormLabel>Teléfono</FormLabel>
                             <FormControl>
-                              <Input placeholder="+54 11 1234-5678" {...field} data-testid="input-phone" />
+                              <Input placeholder="+54 11 1234-5678" {...field} value={field.value || ""} data-testid="input-phone" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

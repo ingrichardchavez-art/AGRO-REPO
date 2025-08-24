@@ -88,12 +88,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (index === -1) {
           return res.status(404).json({ message: "Vehicle not found" });
         }
-        inMemoryData.vehicles[index] = { ...inMemoryData.vehicles[index], ...req.body, updatedAt: new Date() };
+        inMemoryData.vehicles[index] = { ...inMemoryData.vehicles[index], ...req.body, updated_at: new Date().toISOString() };
         res.json(inMemoryData.vehicles[index]);
       }
     } catch (error) {
       console.error("Error updating vehicle:", error);
       res.status(500).json({ message: "Failed to update vehicle" });
+    }
+  });
+
+  app.post("/api/vehicles", async (req, res) => {
+    try {
+      if (supabase) {
+        const { data: vehicle, error } = await supabase.from('vehicles').insert(req.body).select().single();
+        if (error) throw error;
+        res.status(201).json(vehicle);
+      } else {
+        // Usar datos en memoria
+        const newVehicle = {
+          id: Date.now().toString(),
+          ...req.body,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        inMemoryData.vehicles.push(newVehicle);
+        res.status(201).json(newVehicle);
+      }
+    } catch (error) {
+      console.error("Error creating vehicle:", error);
+      res.status(500).json({ message: "Failed to create vehicle" });
     }
   });
 
@@ -111,6 +134,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching clients:", error);
       res.status(500).json({ message: "Failed to fetch clients" });
+    }
+  });
+
+  app.post("/api/clients", async (req, res) => {
+    try {
+      if (supabase) {
+        const { data: client, error } = await supabase.from('clients').insert(req.body).select().single();
+        if (error) throw error;
+        res.status(201).json(client);
+      } else {
+        // Usar datos en memoria
+        const newClient = {
+          id: Date.now().toString(),
+          ...req.body,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        inMemoryData.clients.push(newClient);
+        res.status(201).json(newClient);
+      }
+    } catch (error) {
+      console.error("Error creating client:", error);
+      res.status(500).json({ message: "Failed to create client" });
+    }
+  });
+
+  app.patch("/api/clients/:id", async (req, res) => {
+    try {
+      if (supabase) {
+        const { data: client, error } = await supabase.from('clients').update(req.body).eq('id', req.params.id).select().single();
+        if (error) throw error;
+        res.json(client);
+      } else {
+        // Usar datos en memoria
+        const index = inMemoryData.clients.findIndex(c => c.id === req.params.id);
+        if (index === -1) {
+          return res.status(404).json({ message: "Client not found" });
+        }
+        inMemoryData.clients[index] = { ...inMemoryData.clients[index], ...req.body, updatedAt: new Date() };
+        res.json(inMemoryData.clients[index]);
+      }
+    } catch (error) {
+      console.error("Error updating client:", error);
+      res.status(500).json({ message: "Failed to update client" });
     }
   });
 
@@ -268,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Alert not found" });
         }
         inMemoryData.alerts[index].read = true;
-        inMemoryData.alerts[index].updatedAt = new Date();
+        inMemoryData.alerts[index].updated_at = new Date().toISOString();
         res.json(inMemoryData.alerts[index]);
       }
     } catch (error) {
@@ -290,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Alert not found" });
         }
         inMemoryData.alerts[index].resolved = true;
-        inMemoryData.alerts[index].updatedAt = new Date();
+        inMemoryData.alerts[index].updated_at = new Date().toISOString();
         res.json(inMemoryData.alerts[index]);
       }
     } catch (error) {

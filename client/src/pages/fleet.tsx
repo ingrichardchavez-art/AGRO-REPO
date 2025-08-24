@@ -84,11 +84,27 @@ export default function Fleet() {
       status: "idle",
       driverName: "",
       fuelLevel: "100",
+      fuelType: "diesel",
+      maintenanceStatus: "good",
+      location: "",
+      lastMaintenance: "",
+      nextMaintenance: "",
+      insuranceExpiry: "",
+      registrationExpiry: "",
+      notes: ""
     },
   });
 
   const onSubmit = (data: InsertVehicle) => {
-    createVehicleMutation.mutate(data);
+    // Convertir campos numéricos si es necesario
+    const vehicleData = {
+      ...data,
+      capacity: typeof data.capacity === 'string' ? data.capacity : data.capacity.toString(),
+      currentLoad: typeof data.currentLoad === 'string' ? data.currentLoad : (data.currentLoad || "0").toString(),
+      fuelLevel: typeof data.fuelLevel === 'string' ? data.fuelLevel : (data.fuelLevel || "100").toString(),
+    };
+    
+    createVehicleMutation.mutate(vehicleData);
   };
 
   const getStatusColor = (status: string) => {
@@ -233,12 +249,59 @@ export default function Fleet() {
                     />
                     <FormField
                       control={form.control}
+                      name="fuelType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Combustible</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-fuel-type">
+                                <SelectValue placeholder="Seleccionar tipo de combustible" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="diesel">Diesel</SelectItem>
+                              <SelectItem value="gasoline">Gasolina</SelectItem>
+                              <SelectItem value="electric">Eléctrico</SelectItem>
+                              <SelectItem value="hybrid">Híbrido</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maintenanceStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estado de Mantenimiento</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-maintenance-status">
+                                <SelectValue placeholder="Seleccionar estado" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="excellent">Excelente</SelectItem>
+                              <SelectItem value="good">Bueno</SelectItem>
+                              <SelectItem value="fair">Regular</SelectItem>
+                              <SelectItem value="poor">Malo</SelectItem>
+                              <SelectItem value="critical">Crítico</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="driverName"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Conductor</FormLabel>
                           <FormControl>
-                            <Input placeholder="Nombre del conductor" {...field} />
+                            <Input placeholder="Nombre del conductor" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -446,11 +509,19 @@ export default function Fleet() {
           console.log("Recibidos datos del formulario:", formData);
           console.log("ID del vehículo a actualizar:", editingVehicle?.id);
           
+          // Convertir campos numéricos si es necesario
+          const vehicleData = {
+            ...formData,
+            capacity: typeof formData.capacity === 'string' ? formData.capacity : (formData.capacity || "0").toString(),
+            currentLoad: typeof formData.currentLoad === 'string' ? formData.currentLoad : (formData.currentLoad || "0").toString(),
+            fuelLevel: typeof formData.fuelLevel === 'string' ? formData.fuelLevel : (formData.fuelLevel || "100").toString(),
+          };
+          
           // Usar la mutación para actualizar el vehículo
           if (editingVehicle) {
             updateVehicleMutation.mutate({ 
               id: editingVehicle.id, 
-              data: formData 
+              data: vehicleData as Partial<Vehicle>
             });
           }
           

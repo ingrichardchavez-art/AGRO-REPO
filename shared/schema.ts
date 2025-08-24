@@ -25,7 +25,15 @@ export const vehicles = pgTable("vehicles", {
   driverName: text("driver_name"),
   lastLocation: jsonb("last_location"), // {lat, lng, timestamp}
   fuelLevel: decimal("fuel_level", { precision: 5, scale: 2 }),
+  fuelType: text("fuel_type").default("diesel"),
   temperature: decimal("temperature", { precision: 5, scale: 2 }), // for refrigerated vehicles
+  maintenanceStatus: text("maintenance_status").default("good"),
+  location: text("location"),
+  lastMaintenance: text("last_maintenance"),
+  nextMaintenance: text("next_maintenance"),
+  insuranceExpiry: text("insurance_expiry"),
+  registrationExpiry: text("registration_expiry"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -120,11 +128,28 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  capacity: z.string().or(z.number()),
+  currentLoad: z.string().or(z.number()).optional(),
+  fuelLevel: z.string().or(z.number()).optional(),
+  fuelType: z.string().default("diesel"),
+  maintenanceStatus: z.string().default("good"),
+  location: z.string().optional(),
+  lastMaintenance: z.string().optional(),
+  nextMaintenance: z.string().optional(),
+  insuranceExpiry: z.string().optional(),
+  registrationExpiry: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({
   id: true,
   createdAt: true,
+}).extend({
+  email: z.string().email("Email inválido").optional(),
+  phone: z.string().optional(),
+  clientType: z.enum(["customer", "supplier", "distributor"]),
+  priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
 });
 
 export const insertOrderSchema = createInsertSchema(orders).omit({

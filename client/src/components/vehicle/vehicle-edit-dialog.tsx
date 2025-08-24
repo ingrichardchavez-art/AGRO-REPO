@@ -27,11 +27,11 @@ export default function VehicleEditDialog({
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     plate: "",
     type: "truck",
-    capacity: 0,
-    currentLoad: 0,
+    capacity: "0",
+    currentLoad: "0",
     status: "idle",
     driverName: "",
-    fuelLevel: 100,
+    fuelLevel: "100",
     fuelType: "diesel",
     maintenanceStatus: "good",
     location: "",
@@ -48,11 +48,11 @@ export default function VehicleEditDialog({
       setFormData({
         plate: vehicle.plate || "",
         type: vehicle.type || "truck",
-        capacity: vehicle.capacity || 0,
-        currentLoad: vehicle.currentLoad || 0,
+        capacity: vehicle.capacity || "0",
+        currentLoad: vehicle.currentLoad || "0",
         status: vehicle.status || "idle",
         driverName: vehicle.driverName || "",
-        fuelLevel: vehicle.fuelLevel || 100,
+        fuelLevel: vehicle.fuelLevel || "100",
         fuelType: vehicle.fuelType || "diesel",
         maintenanceStatus: vehicle.maintenanceStatus || "good",
         location: vehicle.location || "",
@@ -102,11 +102,11 @@ export default function VehicleEditDialog({
       setFormData({
         plate: vehicle.plate || "",
         type: vehicle.type || "truck",
-        capacity: vehicle.capacity || 0,
-        currentLoad: vehicle.currentLoad || 0,
+        capacity: vehicle.capacity || "0",
+        currentLoad: vehicle.currentLoad || "0",
         status: vehicle.status || "idle",
         driverName: vehicle.driverName || "",
-        fuelLevel: vehicle.fuelLevel || 100,
+        fuelLevel: vehicle.fuelLevel || "100",
         fuelType: vehicle.fuelType || "diesel",
         maintenanceStatus: vehicle.maintenanceStatus || "good",
         location: vehicle.location || "",
@@ -187,7 +187,7 @@ export default function VehicleEditDialog({
                   id="capacity"
                   type="number"
                   value={formData.capacity || ""}
-                  onChange={(e) => handleInputChange("capacity", Number(e.target.value))}
+                  onChange={(e) => handleInputChange("capacity", e.target.value)}
                   placeholder="8000"
                 />
               </div>
@@ -198,7 +198,7 @@ export default function VehicleEditDialog({
                   id="currentLoad"
                   type="number"
                   value={formData.currentLoad || ""}
-                  onChange={(e) => handleInputChange("currentLoad", Number(e.target.value))}
+                  onChange={(e) => handleInputChange("currentLoad", e.target.value)}
                   placeholder="0"
                 />
               </div>
@@ -281,7 +281,7 @@ export default function VehicleEditDialog({
                   min="0"
                   max="100"
                   value={formData.fuelLevel || ""}
-                  onChange={(e) => handleInputChange("fuelLevel", Number(e.target.value))}
+                  onChange={(e) => handleInputChange("fuelLevel", e.target.value)}
                   placeholder="100"
                 />
               </div>
