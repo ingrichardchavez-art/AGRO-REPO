@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Vehicle, InsertVehicle } from "@shared/schema";
 import { insertVehicleSchema } from "@shared/schema";
+import VehicleEditDialog from "@/components/vehicle/vehicle-edit-dialog";
 
 export default function Fleet() {
   const isMobile = useIsMobile();
@@ -87,11 +88,7 @@ export default function Fleet() {
   });
 
   const onSubmit = (data: InsertVehicle) => {
-    if (editingVehicle) {
-      updateVehicleMutation.mutate({ id: editingVehicle.id, data });
-    } else {
-      createVehicleMutation.mutate(data);
-    }
+    createVehicleMutation.mutate(data);
   };
 
   const getStatusColor = (status: string) => {
@@ -139,16 +136,6 @@ export default function Fleet() {
 
   const openEditDialog = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
-    form.reset({
-      plate: vehicle.plate,
-      type: vehicle.type,
-      capacity: vehicle.capacity,
-      currentLoad: vehicle.currentLoad || "0",
-      status: vehicle.status,
-      driverName: vehicle.driverName || "",
-      fuelLevel: vehicle.fuelLevel || "100",
-      temperature: vehicle.temperature || "",
-    });
   };
 
   return (
@@ -180,10 +167,7 @@ export default function Fleet() {
               <h1 className="text-2xl font-bold text-gray-900">Gestión de Flota</h1>
               <p className="text-gray-600">CRUD completo de vehículos con validación de capacidades</p>
             </div>
-            <Dialog open={isCreateDialogOpen || !!editingVehicle} onOpenChange={(open) => {
-              setIsCreateDialogOpen(open);
-              if (!open) setEditingVehicle(null);
-            }}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
                   className="bg-agro-primary hover:bg-agro-primary/90"
@@ -195,9 +179,7 @@ export default function Fleet() {
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>
-                    {editingVehicle ? "Editar Vehículo" : "Nuevo Vehículo"}
-                  </DialogTitle>
+                  <DialogTitle>Nuevo Vehículo</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -256,7 +238,7 @@ export default function Fleet() {
                         <FormItem>
                           <FormLabel>Conductor</FormLabel>
                           <FormControl>
-                            <Input placeholder="Nombre del conductor" {...field} data-testid="input-driver" />
+                            <Input placeholder="Nombre del conductor" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -287,15 +269,12 @@ export default function Fleet() {
                     />
                     <div className="flex space-x-2 pt-4">
                       <Button type="submit" className="flex-1">
-                        {editingVehicle ? "Actualizar" : "Crear"}
+                        Crear
                       </Button>
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => {
-                          setIsCreateDialogOpen(false);
-                          setEditingVehicle(null);
-                        }}
+                        onClick={() => setIsCreateDialogOpen(false)}
                       >
                         Cancelar
                       </Button>
@@ -457,6 +436,28 @@ export default function Fleet() {
 
       {/* Mobile Bottom Navigation */}
       {isMobile && <MobileNav />}
+
+      {/* Dialog de edición de vehículos */}
+      <VehicleEditDialog
+        vehicle={editingVehicle}
+        isOpen={!!editingVehicle}
+        onClose={() => setEditingVehicle(null)}
+        onSave={(formData) => {
+          console.log("Recibidos datos del formulario:", formData);
+          console.log("ID del vehículo a actualizar:", editingVehicle?.id);
+          
+          // Usar la mutación para actualizar el vehículo
+          if (editingVehicle) {
+            updateVehicleMutation.mutate({ 
+              id: editingVehicle.id, 
+              data: formData 
+            });
+          }
+          
+          // Cerrar el diálogo
+          setEditingVehicle(null);
+        }}
+      />
     </div>
   );
 }
